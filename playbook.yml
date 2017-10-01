@@ -1,0 +1,49 @@
+---
+- hosts: web
+  vars:
+    project_name: django-basic-ansible
+
+    install_root: /srv
+
+    project_repo: git@github.com:alvesisaque/GCS04.git
+
+    ssh_private_key: ~/.ssh/id_rsa
+
+    dbname: basicdjango
+    dbuser: basicdjangouser
+    dbpassword: password
+
+    system_packages:
+      - postgresql
+      - postgresql-contrib
+      - libpq-dev
+      - python-psycopg2
+      - python-pip
+
+  become: true
+  tasks:
+    - name: Install system packages
+      apt: pkg={{ item }} state=installed update_cache=true
+      with_items: "{{ system_packages }}"
+
+    - name: install python packages
+      pip: requirements=requirements.txt
+
+    - name: copy settings.py config
+      template: src=template/settings.py.j2 dest=djangobasico/settings.py
+
+    - name: make sure postgresql server is running
+      service: name=postgresql state=started
+
+    - name: create database
+      become_user: postgres
+      postgresql_db: name={{ dbname }}
+
+    - name: create database user
+      become_user: postgres
+      postgresql_user: db={{ dbname }} name={{ dbuser }} password={{ dbpassword }} priv=ALL
+
+    - name: initial database database
+      django_manage:
+        command: loaddata
+        fixtures: db.fixture.json
